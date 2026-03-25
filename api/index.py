@@ -146,10 +146,10 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
     """Récupère le marché et toutes ses options"""
     async with httpx.AsyncClient() as client:
         try:
-            # Rechercher le marché via l'API
+            # Rechercher le marché via l'API (augmenté à 200)
             response = await client.get(
                 f"{GAMMA_API_BASE}/markets",
-                params={"active": "true", "closed": "false", "limit": 100},
+                params={"active": "true", "closed": "false", "limit": 200},
                 timeout=10.0
             )
             response.raise_for_status()
@@ -198,14 +198,17 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
             if best_match_details:
                 print(f"[DEBUG] Meilleur match: {best_match_details}")
             
-            # Accepter un match si au moins 2 mots en commun
-            if not target_market or best_match_score < 2:
+            # Accepter un match si au moins 3 mots en commun (augmenté pour éviter faux positifs)
+            if not target_market or best_match_score < 3:
                 # Log les 5 premiers marchés pour debug
                 print("[DEBUG] Aucun match trouvé. Premiers marchés:")
                 for i, m in enumerate(markets[:5]):
                     print(f"  {i+1}. Slug: {m.get('slug', 'N/A')}")
                     print(f"     Question: {m.get('question', 'N/A')}")
-                raise HTTPException(status_code=404, detail=f"Marché non trouvé (meilleur score: {best_match_score})")
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Marché non trouvé (meilleur score: {best_match_score}/3 minimum requis)"
+                )
             
             # Extraire toutes les options
             outcomes = target_market.get('outcomes', [])
@@ -217,7 +220,16 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
             
             options = []
             for i, outcome in enumerate(outcomes):
-                price = float(outcome_prices[i]) if i < len(outcome_prices) else 0.5
+                try:
+                    # Parser le prix avec gestion d'erreurs
+                    price_str = outcome_prices[i] if i < len(outcome_prices) else '0.5'
+                    # Nettoyer le prix (enlever caractères spéciaux)
+                    price_str = str(price_str).replace('|', '').replace(',', '.').strip()
+                    price = float(price_str) if price_str and price_str != '' else 0.5
+                except (ValueError, TypeError, IndexError) as e:
+                    print(f"[WARNING] Erreur parsing prix pour option {i}: {e}, utilisation 0.5 par défaut")
+                    price = 0.5
+                
                 token_id = tokens[i] if i < len(tokens) else ""
                 
                 options.append({
@@ -226,6 +238,8 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                     "token_id": token_id,
                     "volume": float(target_market.get('volume24hr', 0)) / len(outcomes)
                 })
+            
+            print(f"[DEBUG] {len(options)} options extraites du marché")
             
             return {
                 "question": target_market.get('question', 'Unknown'),
