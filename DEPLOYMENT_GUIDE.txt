@@ -1,0 +1,319 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║         GUIDE DE DÉPLOIEMENT GITHUB + VERCEL (10 MINUTES)                ║
+║                  Version Production Complète                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 📦 ÉTAPE 1: TÉLÉCHARGER LES FICHIERS (1 min)                            ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Tous les fichiers du projet sont dans le dossier:
+  polymarket-analyzer/
+
+Structure:
+  polymarket-analyzer/
+  ├── api/
+  │   ├── index.py           ← Backend FastAPI
+  │   └── requirements.txt   ← Dépendances Python
+  ├── src/
+  │   ├── pages/
+  │   │   ├── index.tsx      ← Page principale
+  │   │   └── _app.tsx
+  │   └── styles/
+  │       ├── Home.module.css
+  │       └── globals.css
+  ├── package.json           ← Config Next.js
+  ├── vercel.json           ← Config Vercel
+  ├── next.config.js
+  ├── tsconfig.json
+  ├── .gitignore
+  └── README.md
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🐙 ÉTAPE 2: CRÉER REPOSITORY GITHUB (2 min)                             ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+1. Allez sur https://github.com
+
+2. Cliquez sur "+" → "New repository"
+
+3. Remplissez:
+   Repository name: polymarket-strategy-analyzer
+   Description: Analysez n'importe quel marché Polymarket avec TimesFM
+   Public ou Private: Votre choix
+   
+4. NE PAS cocher "Add README" (on en a déjà un)
+
+5. Cliquez "Create repository"
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 💻 ÉTAPE 3: UPLOADER SUR GITHUB (3 min)                                 ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+OPTION A: Via GitHub Desktop (Plus Simple)
+───────────────────────────────────────────
+
+1. Téléchargez GitHub Desktop: https://desktop.github.com
+
+2. Ouvrez GitHub Desktop → "Add" → "Add Existing Repository"
+
+3. Sélectionnez le dossier polymarket-analyzer/
+
+4. Cliquez "Publish repository"
+
+5. Choisissez votre compte GitHub
+
+6. Cliquez "Publish repository" → FAIT ! ✅
+
+
+OPTION B: Via Ligne de Commande (Git)
+──────────────────────────────────────
+
+Ouvrez un terminal dans le dossier polymarket-analyzer/
+
+```bash
+# Initialiser Git
+git init
+
+# Ajouter tous les fichiers
+git add .
+
+# Premier commit
+git commit -m "Initial commit: Polymarket Strategy Analyzer"
+
+# Lier au repository GitHub (remplacez VOTRE_USERNAME)
+git remote add origin https://github.com/VOTRE_USERNAME/polymarket-strategy-analyzer.git
+
+# Pousser sur GitHub
+git branch -M main
+git push -u origin main
+```
+
+✅ Votre code est maintenant sur GitHub !
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ☁️  ÉTAPE 4: DÉPLOYER SUR VERCEL (4 min)                                ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+1. Allez sur https://vercel.com
+
+2. Cliquez "Sign Up" ou "Login"
+   → Se connecter avec GitHub (recommandé)
+
+3. Une fois connecté, cliquez "Add New..." → "Project"
+
+4. Vercel affiche vos repositories GitHub
+   → Cherchez "polymarket-strategy-analyzer"
+   → Cliquez "Import"
+
+5. Configuration:
+   Framework Preset: Next.js (détecté automatiquement) ✅
+   Root Directory: ./ (par défaut) ✅
+   Build Command: (laissez par défaut) ✅
+   Output Directory: (laissez par défaut) ✅
+
+6. Environment Variables (optionnel):
+   Si vous voulez configurer l'URL TimesFM:
+   
+   Name: TIMESFM_API_URL
+   Value: https://onaaction-timesfm-api.hf.space/api/forecast
+   
+   Cliquez "Add"
+
+7. Cliquez "Deploy" → ATTENDEZ 2-3 MINUTES ⏳
+
+8. ✅ DÉPLOIEMENT TERMINÉ !
+
+Vous verrez:
+  🎉 Congratulations!
+  
+  Your project has been successfully deployed.
+  https://polymarket-strategy-analyzer.vercel.app
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🎯 ÉTAPE 5: TESTER L'APPLICATION                                         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+1. Cliquez sur le lien Vercel (ex: https://votre-app.vercel.app)
+
+2. L'application s'ouvre dans votre navigateur
+
+3. Testez avec cette URL:
+   https://polymarket.com/event/2026-ncaa-tournament-winner#qb1jDUlo
+
+4. Collez dans le champ → Cliquez "Analyser"
+
+5. Vous devriez voir:
+   ✅ Informations du marché
+   ✅ Analyse TimesFM
+   ✅ Recommandation
+   ✅ Stratégie de trading
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🔄 ÉTAPE 6: MISES À JOUR AUTOMATIQUES                                    ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Maintenant que c'est connecté:
+
+CHAQUE FOIS que vous modifiez le code sur GitHub:
+  → Vercel redéploie AUTOMATIQUEMENT
+  → Nouveau déploiement en 2-3 minutes
+  → Votre site est toujours à jour
+
+Workflow:
+  1. Modifier fichiers localement
+  2. Commit + Push sur GitHub
+  3. Vercel déploie automatiquement
+  4. Site mis à jour !
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🌐 DOMAINE PERSONNALISÉ (Optionnel)                                      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Par défaut: https://polymarket-strategy-analyzer.vercel.app
+
+Pour un domaine personnalisé (ex: polymarket.votresite.com):
+
+1. Dans Vercel Dashboard → Settings → Domains
+
+2. Cliquez "Add"
+
+3. Entrez votre domaine
+
+4. Suivez les instructions DNS
+
+5. Attendez propagation (quelques heures max)
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🔧 TROUBLESHOOTING                                                        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+PROBLÈME 1: Erreur de déploiement
+──────────────────────────────────
+
+Dans Vercel, cliquez sur le déploiement qui a échoué
+→ Regardez les logs
+→ Cherchez l'erreur en rouge
+
+Solutions communes:
+  - Erreur Python: Vérifier api/requirements.txt
+  - Erreur Node: Vérifier package.json
+  - Erreur build: Vérifier tsconfig.json
+
+
+PROBLÈME 2: API ne répond pas
+──────────────────────────────
+
+Dans Vercel Dashboard:
+  → Settings → Functions
+  → Vérifier que "api/index.py" est bien déployée
+  
+Si pas visible:
+  → Redéployer manuellement
+  → Deployments → ... → Redeploy
+
+
+PROBLÈME 3: Frontend affiche erreur 404
+────────────────────────────────────────
+
+Vérifier vercel.json:
+  - Routes correctement configurées
+  - Backend API bien mappée
+
+Redéployer si nécessaire.
+
+
+PROBLÈME 4: TimesFM timeout
+────────────────────────────
+
+L'API TimesFM peut être lente ou indisponible.
+→ Le code a un fallback automatique
+→ Utilisera analyse basique si TimesFM échoue
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 📊 MONITORING ET ANALYTICS                                               ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+Dans Vercel Dashboard, vous pouvez voir:
+
+Analytics:
+  → Nombre de visiteurs
+  → Temps de chargement
+  → Erreurs
+
+Logs:
+  → Logs en temps réel
+  → Erreurs API
+  → Requêtes
+
+Usage:
+  → Bandwidth utilisé
+  → Nombre de déploiements
+  → Serverless functions invocations
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 💰 COÛTS                                                                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+VERCEL HOBBY (GRATUIT):
+  ✅ Illimité déploiements
+  ✅ SSL automatique
+  ✅ 100 GB bandwidth/mois
+  ✅ Serverless functions
+  ✅ Prévisualisation automatique
+  
+LARGEMENT SUFFISANT pour usage personnel !
+
+Si dépassement:
+  → Plan Pro: $20/mois
+  → Mais peu probable pour ce projet
+
+
+GITHUB:
+  ✅ Repositories publics: GRATUITS
+  ⚠️  Repositories privés: Gratuit jusqu'à X Go
+
+
+════════════════════════════════════════════════════════════════════════════
+                          RÉCAPITULATIF
+════════════════════════════════════════════════════════════════════════════
+
+TEMPS TOTAL: ~10 minutes
+
+✅ ÉTAPE 1: Télécharger fichiers (1 min)
+✅ ÉTAPE 2: Créer repo GitHub (2 min)
+✅ ÉTAPE 3: Upload sur GitHub (3 min)
+✅ ÉTAPE 4: Déployer sur Vercel (4 min)
+
+RÉSULTAT:
+  🌐 Site live et accessible mondialement
+  🔄 Déploiements automatiques
+  ⚡ Performance optimale
+  🔒 HTTPS automatique
+  📊 Analytics inclus
+  💰 100% GRATUIT
+
+
+VOTRE APP:
+  https://polymarket-strategy-analyzer.vercel.app
+
+
+PROCHAINES ÉTAPES:
+  1. Tester l'app avec différents marchés
+  2. Partager le lien avec des amis
+  3. Monitorer l'usage dans Vercel
+  4. Améliorer le code si nécessaire
+  5. Profiter ! 🎉
+
+
+════════════════════════════════════════════════════════════════════════════
