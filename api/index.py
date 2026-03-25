@@ -157,14 +157,32 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
             
             # Trouver le marché correspondant au slug
             target_market = None
-            for market in markets:
-                # Comparer avec le slug de la question
-                market_slug = market.get('slug', '')
-                if event_slug in market_slug or market_slug in event_slug:
-                    target_market = market
-                    break
             
-            if not target_market:
+            # Nettoyer et tokenizer le slug de l'URL
+            event_tokens = set(event_slug.lower().replace('-', ' ').split())
+            
+            best_match_score = 0
+            for market in markets:
+                # Chercher dans le slug ET la question
+                market_slug = market.get('slug', '').lower()
+                market_question = market.get('question', '').lower()
+                
+                # Tokenizer le slug et la question du marché
+                market_tokens = set(market_slug.replace('-', ' ').split())
+                question_tokens = set(market_question.replace('-', ' ').split())
+                
+                # Calculer le score de matching
+                slug_matches = len(event_tokens & market_tokens)
+                question_matches = len(event_tokens & question_tokens)
+                total_score = slug_matches + question_matches
+                
+                # Garder le meilleur match
+                if total_score > best_match_score:
+                    best_match_score = total_score
+                    target_market = market
+            
+            # Accepter un match si au moins 2 mots en commun
+            if not target_market or best_match_score < 2:
                 raise HTTPException(status_code=404, detail="Marché non trouvé")
             
             # Extraire toutes les options
