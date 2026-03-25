@@ -155,13 +155,19 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
             response.raise_for_status()
             markets = response.json()
             
+            print(f"[DEBUG] Nombre de marchés retournés: {len(markets)}")
+            print(f"[DEBUG] Recherche pour event_slug: {event_slug}")
+            
             # Trouver le marché correspondant au slug
             target_market = None
             
             # Nettoyer et tokenizer le slug de l'URL
             event_tokens = set(event_slug.lower().replace('-', ' ').split())
+            print(f"[DEBUG] Event tokens: {event_tokens}")
             
             best_match_score = 0
+            best_match_details = None
+            
             for market in markets:
                 # Chercher dans le slug ET la question
                 market_slug = market.get('slug', '').lower()
@@ -180,10 +186,26 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                 if total_score > best_match_score:
                     best_match_score = total_score
                     target_market = market
+                    best_match_details = {
+                        "slug": market_slug,
+                        "question": market_question,
+                        "score": total_score,
+                        "slug_matches": slug_matches,
+                        "question_matches": question_matches
+                    }
+            
+            print(f"[DEBUG] Meilleur score trouvé: {best_match_score}")
+            if best_match_details:
+                print(f"[DEBUG] Meilleur match: {best_match_details}")
             
             # Accepter un match si au moins 2 mots en commun
             if not target_market or best_match_score < 2:
-                raise HTTPException(status_code=404, detail="Marché non trouvé")
+                # Log les 5 premiers marchés pour debug
+                print("[DEBUG] Aucun match trouvé. Premiers marchés:")
+                for i, m in enumerate(markets[:5]):
+                    print(f"  {i+1}. Slug: {m.get('slug', 'N/A')}")
+                    print(f"     Question: {m.get('question', 'N/A')}")
+                raise HTTPException(status_code=404, detail=f"Marché non trouvé (meilleur score: {best_match_score})")
             
             # Extraire toutes les options
             outcomes = target_market.get('outcomes', [])
