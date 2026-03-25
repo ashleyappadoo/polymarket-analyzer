@@ -1,0 +1,291 @@
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  text-align: center;
+  border-radius: 20px 20px 0 0;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header h1 {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.header p {
+  opacity: 0.9;
+  font-size: 14px;
+}
+
+.content {
+  background: white;
+  border-radius: 0 0 20px 20px;
+  padding: 30px;
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.inputGroup {
+  margin-bottom: 20px;
+}
+
+.inputGroup label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.inputGroup input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.inputGroup input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  margin-top: 20px;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 15px;
+  color: #721c24;
+  margin-top: 20px;
+}
+
+.result {
+  margin-top: 30px;
+}
+
+.marketInfo {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.marketInfo h2 {
+  color: #333;
+  font-size: 20px;
+  margin-bottom: 15px;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.infoRow:last-child {
+  border-bottom: none;
+}
+
+.infoLabel {
+  font-weight: 600;
+  color: #666;
+}
+
+.infoValue {
+  color: #333;
+}
+
+.timesfmAnalysis {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.timesfmAnalysis h3 {
+  color: #667eea;
+  margin-bottom: 15px;
+}
+
+.metric {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.metric:last-child {
+  border-bottom: none;
+}
+
+.metricLabel {
+  font-weight: 600;
+  color: #666;
+}
+
+.metricValue {
+  color: #333;
+  font-weight: 600;
+}
+
+.metricValue.good {
+  color: #28a745;
+}
+
+.metricValue.warning {
+  color: #ffc107;
+}
+
+.metricValue.bad {
+  color: #dc3545;
+}
+
+.recommendation {
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.recommendation.buy {
+  background: #d4edda;
+  border-left: 4px solid #28a745;
+}
+
+.recommendation.sell {
+  background: #f8d7da;
+  border-left: 4px solid #dc3545;
+}
+
+.recommendation.hold {
+  background: #d1ecf1;
+  border-left: 4px solid #17a2b8;
+}
+
+.recommendation h4 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.recommendation p {
+  color: #333;
+  line-height: 1.6;
+}
+
+.strategy {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 25px;
+}
+
+.strategy h3 {
+  font-size: 22px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.strategyItem {
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.strategyItem:last-child {
+  margin-bottom: 0;
+}
+
+.strategyLabel {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.strategyValue {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.footer {
+  text-align: center;
+  padding: 20px;
+  color: white;
+  max-width: 800px;
+  margin: 20px auto 0;
+}
+
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 24px;
+  }
+  
+  .content {
+    padding: 20px;
+  }
+  
+  .strategyItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+}
