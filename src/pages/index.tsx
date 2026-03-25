@@ -2,21 +2,6 @@ import { useState } from 'react';
 import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 
-interface MarketInfo {
-  question: string;
-  option_name: string;
-  current_price: number;
-  volume_24h: number;
-  liquidity: number;
-}
-
-interface TimesFMAnalysis {
-  volatility: number;
-  stability: number;
-  trend: string;
-  confidence: number;
-}
-
 interface Strategy {
   suggested_amount: string;
   entry_price_min: number;
@@ -27,11 +12,32 @@ interface Strategy {
   risk_level: string;
 }
 
-interface MarketAnalysis {
-  market_info: MarketInfo;
-  timesfm_analysis: TimesFMAnalysis;
-  strategy: Strategy;
+interface OptionAnalysis {
+  option_name: string;
+  current_price: number;
+  price_percentage: number;
+  volume_24h: number;
+  volatility: number;
+  stability: number;
+  trend: string;
+  confidence: number;
   recommendation: string;
+  strategy: Strategy;
+  token_id: string;
+}
+
+interface BestOption {
+  option_name: string;
+  score: number;
+  recommendation: string;
+  reason: string;
+}
+
+interface MarketAnalysis {
+  market_question: string;
+  total_options: number;
+  options: OptionAnalysis[];
+  best_option: BestOption;
 }
 
 export default function Home() {
@@ -80,33 +86,14 @@ export default function Home() {
     return styles.hold;
   };
 
-  const getRecommendationText = (recommendation: string) => {
-    switch (recommendation) {
-      case 'ACHETER':
-        return {
-          title: '🟢 ACHETER',
-          text: 'Excellente opportunité ! Tous les indicateurs sont au vert. Tendance haussière confirmée avec bonne stabilité.',
-        };
-      case 'ACHETER_PRUDENT':
-        return {
-          title: '🟡 ACHETER PRUDEMMENT',
-          text: 'Opportunité favorable mais avec prudence. Tendance positive mais volatilité modérée. Réduisez le montant investi.',
-        };
-      case 'ATTENDRE':
-        return {
-          title: '🔴 ATTENDRE',
-          text: 'Marché trop volatil ou tendance défavorable. Attendez de meilleures conditions avant d\'entrer en position.',
-        };
-      default:
-        return {
-          title: '🔵 OBSERVER',
-          text: 'Marché stable sans signal clair. Surveillez l\'évolution avant de prendre une décision.',
-        };
-    }
+  const getTrendClass = (trend: string) => {
+    if (trend === 'Haussière') return styles.good;
+    if (trend === 'Baissière') return styles.bad;
+    return styles.warning;
   };
 
-  const getMetricClass = (value: number | string, metric: string) => {
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  const getMetricClass = (value: number, metric: string) => {
+    const numValue = typeof value === 'string' ? parseFloat(value as any) : value;
     
     if (metric === 'volatility') {
       if (numValue < 5) return styles.good;
@@ -117,11 +104,6 @@ export default function Home() {
       if (numValue > 70) return styles.good;
       if (numValue > 50) return styles.warning;
       return styles.bad;
-    }
-    if (metric === 'trend') {
-      if (value === 'Haussière') return styles.good;
-      if (value === 'Baissière') return styles.bad;
-      return styles.warning;
     }
     if (metric === 'confidence') {
       if (numValue > 70) return styles.good;
@@ -134,14 +116,15 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <Head>
-        <title>Polymarket Strategy Analyzer</title>
-        <meta name="description" content="Analysez n'importe quel marché Polymarket avec TimesFM" />
+        <title>Polymarket Strategy Analyzer V6</title>
+        <meta name="description" content="Analysez toutes les options d'un marché Polymarket" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div className={styles.header}>
         <h1>🎯 Polymarket Strategy Analyzer</h1>
         <p>Analysez n'importe quel marché avec TimesFM et obtenez une stratégie de trading</p>
+        <span className={styles.badge}>V6 - Multi-Options</span>
       </div>
 
       <div className={styles.content}>
@@ -152,9 +135,12 @@ export default function Home() {
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://polymarket.com/event/2026-ncaa-tournament-winner#qb1jDUlo"
+            placeholder="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march"
             onKeyPress={(e) => e.key === 'Enter' && analyzeMarket()}
           />
+          <p className={styles.hint}>
+            💡 Entrez juste l'URL du marché (sans #). Toutes les options seront analysées !
+          </p>
         </div>
 
         <button
@@ -162,13 +148,14 @@ export default function Home() {
           onClick={analyzeMarket}
           disabled={loading}
         >
-          {loading ? '⏳ Analyse en cours...' : '🚀 Analyser le Marché'}
+          {loading ? '⏳ Analyse en cours...' : '🚀 Analyser Toutes les Options'}
         </button>
 
         {loading && (
           <div className={styles.loading}>
             <div className={styles.spinner}></div>
-            <p>Récupération des données et prédiction TimesFM...</p>
+            <p>Analyse de toutes les options avec TimesFM...</p>
+            <p className={styles.loadingHint}>Cela peut prendre 10-20 secondes</p>
           </div>
         )}
 
@@ -180,87 +167,146 @@ export default function Home() {
 
         {result && (
           <div className={styles.result}>
-            <div className={styles.marketInfo}>
-              <h2>{result.market_info.question}</h2>
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>📊 Option Analysée:</span>
-                <span className={styles.infoValue}>{result.market_info.option_name}</span>
-              </div>
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>💰 Prix Actuel:</span>
-                <span className={styles.infoValue}>${result.market_info.current_price.toFixed(3)}</span>
-              </div>
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>📈 Volume 24h:</span>
-                <span className={styles.infoValue}>${(result.market_info.volume_24h / 1000).toFixed(0)}K</span>
-              </div>
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>💵 Liquidité:</span>
-                <span className={styles.infoValue}>${(result.market_info.liquidity / 1000).toFixed(0)}K</span>
-              </div>
-            </div>
-
-            <div className={styles.timesfmAnalysis}>
-              <h3>📊 Analyse TimesFM</h3>
-              <div className={styles.metric}>
-                <span className={styles.metricLabel}>Volatilité:</span>
-                <span className={`${styles.metricValue} ${getMetricClass(result.timesfm_analysis.volatility, 'volatility')}`}>
-                  {result.timesfm_analysis.volatility}%
-                </span>
-              </div>
-              <div className={styles.metric}>
-                <span className={styles.metricLabel}>Stabilité:</span>
-                <span className={`${styles.metricValue} ${getMetricClass(result.timesfm_analysis.stability, 'stability')}`}>
-                  {result.timesfm_analysis.stability}/100
-                </span>
-              </div>
-              <div className={styles.metric}>
-                <span className={styles.metricLabel}>Tendance:</span>
-                <span className={`${styles.metricValue} ${getMetricClass(result.timesfm_analysis.trend, 'trend')}`}>
-                  {result.timesfm_analysis.trend}
-                </span>
-              </div>
-              <div className={styles.metric}>
-                <span className={styles.metricLabel}>Confiance Prédiction:</span>
-                <span className={`${styles.metricValue} ${getMetricClass(result.timesfm_analysis.confidence, 'confidence')}`}>
-                  {result.timesfm_analysis.confidence}%
+            {/* En-tête du marché */}
+            <div className={styles.marketHeader}>
+              <h2>{result.market_question}</h2>
+              <div className={styles.marketStats}>
+                <span className={styles.stat}>
+                  📊 {result.total_options} options analysées
                 </span>
               </div>
             </div>
 
-            <div className={`${styles.recommendation} ${getRecommendationClass(result.recommendation)}`}>
-              <h4>{getRecommendationText(result.recommendation).title}</h4>
-              <p>{getRecommendationText(result.recommendation).text}</p>
+            {/* Meilleure option mise en évidence */}
+            <div className={styles.bestOption}>
+              <div className={styles.bestOptionHeader}>
+                <span className={styles.trophy}>🏆</span>
+                <h3>Meilleure Opportunité</h3>
+              </div>
+              <div className={styles.bestOptionContent}>
+                <div className={styles.bestOptionName}>{result.best_option.option_name}</div>
+                <div className={styles.bestOptionScore}>Score: {result.best_option.score}/100</div>
+                <div className={styles.bestOptionReason}>{result.best_option.reason}</div>
+                <div className={`${styles.bestOptionReco} ${getRecommendationClass(result.best_option.recommendation)}`}>
+                  {result.best_option.recommendation}
+                </div>
+              </div>
             </div>
 
-            <div className={styles.strategy}>
-              <h3>💡 Stratégie de Trading</h3>
-              <div className={styles.strategyItem}>
-                <span className={styles.strategyLabel}>💵 Montant Suggéré:</span>
-                <span className={styles.strategyValue}>{result.strategy.suggested_amount}</span>
+            {/* Tableau comparatif */}
+            <div className={styles.comparisonTable}>
+              <h3>📊 Tableau Comparatif de Toutes les Options</h3>
+              
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Option</th>
+                      <th>Prix Actuel</th>
+                      <th>Volatilité</th>
+                      <th>Stabilité</th>
+                      <th>Tendance</th>
+                      <th>Confiance</th>
+                      <th>Recommandation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.options.map((option, index) => {
+                      const isBest = option.option_name === result.best_option.option_name;
+                      return (
+                        <tr key={index} className={isBest ? styles.bestRow : ''}>
+                          <td className={styles.optionName}>
+                            {isBest && <span className={styles.star}>⭐</span>}
+                            {option.option_name}
+                          </td>
+                          <td>
+                            <div className={styles.priceCell}>
+                              <span className={styles.priceValue}>${option.current_price.toFixed(3)}</span>
+                              <span className={styles.pricePercent}>({option.price_percentage.toFixed(1)}%)</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`${styles.metric} ${getMetricClass(option.volatility, 'volatility')}`}>
+                              {option.volatility}%
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`${styles.metric} ${getMetricClass(option.stability, 'stability')}`}>
+                              {option.stability}/100
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`${styles.trend} ${getTrendClass(option.trend)}`}>
+                              {option.trend}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`${styles.metric} ${getMetricClass(option.confidence, 'confidence')}`}>
+                              {option.confidence}%
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`${styles.recommendation} ${getRecommendationClass(option.recommendation)}`}>
+                              {option.recommendation}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <div className={styles.strategyItem}>
-                <span className={styles.strategyLabel}>🎯 Prix d'Entrée:</span>
-                <span className={styles.strategyValue}>
-                  ${result.strategy.entry_price_min}-${result.strategy.entry_price_max}
-                </span>
-              </div>
-              <div className={styles.strategyItem}>
-                <span className={styles.strategyLabel}>🎯 Prix de Sortie Cible:</span>
-                <span className={styles.strategyValue}>${result.strategy.exit_price}+</span>
-              </div>
-              <div className={styles.strategyItem}>
-                <span className={styles.strategyLabel}>🛑 Stop-Loss:</span>
-                <span className={styles.strategyValue}>${result.strategy.stop_loss}</span>
-              </div>
-              <div className={styles.strategyItem}>
-                <span className={styles.strategyLabel}>💰 ROI Potentiel:</span>
-                <span className={styles.strategyValue}>{result.strategy.roi_potential}</span>
-              </div>
-              <div className={styles.strategyItem}>
-                <span className={styles.strategyLabel}>⚠️ Niveau de Risque:</span>
-                <span className={styles.strategyValue}>{result.strategy.risk_level}</span>
-              </div>
+            </div>
+
+            {/* Stratégies détaillées */}
+            <div className={styles.strategies}>
+              <h3>💡 Stratégies Détaillées par Option</h3>
+              
+              {result.options.map((option, index) => {
+                const isBest = option.option_name === result.best_option.option_name;
+                return (
+                  <div key={index} className={`${styles.strategyCard} ${isBest ? styles.bestStrategy : ''}`}>
+                    <div className={styles.strategyHeader}>
+                      <h4>
+                        {isBest && <span className={styles.star}>⭐</span>}
+                        {option.option_name}
+                      </h4>
+                      <span className={`${styles.strategyReco} ${getRecommendationClass(option.recommendation)}`}>
+                        {option.recommendation}
+                      </span>
+                    </div>
+                    
+                    <div className={styles.strategyGrid}>
+                      <div className={styles.strategyItem}>
+                        <span className={styles.strategyLabel}>💵 Montant Suggéré:</span>
+                        <span className={styles.strategyValue}>{option.strategy.suggested_amount}</span>
+                      </div>
+                      <div className={styles.strategyItem}>
+                        <span className={styles.strategyLabel}>🎯 Prix d'Entrée:</span>
+                        <span className={styles.strategyValue}>
+                          ${option.strategy.entry_price_min}-${option.strategy.entry_price_max}
+                        </span>
+                      </div>
+                      <div className={styles.strategyItem}>
+                        <span className={styles.strategyLabel}>🎯 Prix de Sortie:</span>
+                        <span className={styles.strategyValue}>${option.strategy.exit_price}+</span>
+                      </div>
+                      <div className={styles.strategyItem}>
+                        <span className={styles.strategyLabel}>🛑 Stop-Loss:</span>
+                        <span className={styles.strategyValue}>${option.strategy.stop_loss}</span>
+                      </div>
+                      <div className={styles.strategyItem}>
+                        <span className={styles.strategyLabel}>💰 ROI Potentiel:</span>
+                        <span className={styles.strategyValue}>{option.strategy.roi_potential}</span>
+                      </div>
+                      <div className={styles.strategyItem}>
+                        <span className={styles.strategyLabel}>⚠️ Niveau de Risque:</span>
+                        <span className={styles.strategyValue}>{option.strategy.risk_level}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -268,7 +314,7 @@ export default function Home() {
 
       <footer className={styles.footer}>
         <p>
-          Made with ❤️ by ONA | Powered by TimesFM & Polymarket API
+          Made with ❤️ by ONA | Powered by TimesFM & Polymarket API | V6 Multi-Options
         </p>
       </footer>
     </div>
