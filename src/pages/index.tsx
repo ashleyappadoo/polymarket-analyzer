@@ -41,14 +41,14 @@ export default function Home() {
     }
   };
 
-  const getRecommendationClass = (recommendation) => {
+  const getRecommendationClass = (recommendation: string) => {
     if (recommendation === 'ACHETER') return styles.buy;
     if (recommendation === 'ACHETER_PRUDENT') return styles.buy;
     if (recommendation === 'ATTENDRE') return styles.sell;
     return styles.hold;
   };
 
-  const getRecommendationText = (recommendation) => {
+  const getRecommendationText = (recommendation: string) => {
     switch (recommendation) {
       case 'ACHETER':
         return {
@@ -73,7 +73,7 @@ export default function Home() {
     }
   };
 
-  const getMetricClass = (value, metric) => {
+  const getMetricClass = (value: number | string, metric: string) => {
     if (metric === 'volatility') {
       if (value < 5) return styles.good;
       if (value < 8) return styles.warning;
