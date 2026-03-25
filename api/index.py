@@ -211,19 +211,66 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                 )
             
             # Extraire toutes les options
-            outcomes = target_market.get('outcomes', [])
-            outcome_prices = target_market.get('outcomePrices', [])
-            tokens = target_market.get('tokens', [])
+            outcomes_raw = target_market.get('outcomes', [])
+            outcome_prices_raw = target_market.get('outcomePrices', [])
+            tokens_raw = target_market.get('tokens', [])
             
+            # LOG ULTRA-DÉTAILLÉ
+            print(f"[DEBUG] ========== DONNÉES BRUTES API ==========")
+            print(f"[DEBUG] Type outcomes_raw: {type(outcomes_raw)}")
+            print(f"[DEBUG] Type outcome_prices_raw: {type(outcome_prices_raw)}")
+            print(f"[DEBUG] Type tokens_raw: {type(tokens_raw)}")
+            print(f"[DEBUG] Outcomes_raw (premiers 500 chars): {str(outcomes_raw)[:500]}")
+            print(f"[DEBUG] OutcomePrices_raw (premiers 500 chars): {str(outcome_prices_raw)[:500]}")
+            print(f"[DEBUG] Tokens_raw (premiers 500 chars): {str(tokens_raw)[:500]}")
+            
+            # Parser si ce sont des strings JSON
+            import json as json_module
+            
+            # Parser outcomes
+            if isinstance(outcomes_raw, str):
+                try:
+                    outcomes = json_module.loads(outcomes_raw)
+                    print(f"[DEBUG] Outcomes parsé depuis JSON string")
+                except Exception as e:
+                    print(f"[DEBUG] Erreur parsing outcomes JSON: {e}")
+                    outcomes = []
+            else:
+                outcomes = outcomes_raw
+            
+            # Parser prices
+            if isinstance(outcome_prices_raw, str):
+                try:
+                    outcome_prices = json_module.loads(outcome_prices_raw)
+                    print(f"[DEBUG] OutcomePrices parsé depuis JSON string")
+                except Exception as e:
+                    print(f"[DEBUG] Erreur parsing prices JSON: {e}")
+                    outcome_prices = []
+            else:
+                outcome_prices = outcome_prices_raw
+            
+            # Parser tokens
+            if isinstance(tokens_raw, str):
+                try:
+                    tokens = json_module.loads(tokens_raw)
+                    print(f"[DEBUG] Tokens parsé depuis JSON string")
+                except Exception as e:
+                    print(f"[DEBUG] Erreur parsing tokens JSON: {e}")
+                    tokens = []
+            else:
+                tokens = tokens_raw
+            
+            print(f"[DEBUG] ========== APRÈS PARSING ==========")
             print(f"[DEBUG] Type outcomes: {type(outcomes)}")
-            print(f"[DEBUG] Outcomes brut: {outcomes[:3] if len(outcomes) > 3 else outcomes}")
+            print(f"[DEBUG] Nombre outcomes: {len(outcomes) if isinstance(outcomes, list) else 'N/A'}")
+            print(f"[DEBUG] Premiers outcomes: {outcomes[:3] if isinstance(outcomes, list) and len(outcomes) > 3 else outcomes}")
             
             if not outcomes or len(outcomes) == 0:
                 raise HTTPException(status_code=400, detail="Aucune option trouvée pour ce marché")
             
             options = []
             for i, outcome in enumerate(outcomes):
-                # Extraire le nom de l'option (peut être string ou dict)
+                # Extraire le nom de l'option
                 if isinstance(outcome, dict):
                     option_name = outcome.get('name', str(outcome))
                 elif isinstance(outcome, str):
@@ -231,14 +278,20 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                 else:
                     option_name = str(outcome)
                 
-                print(f"[DEBUG] Option {i}: type={type(outcome)}, name={option_name}")
+                print(f"[DEBUG] ===== Option {i} =====")
+                print(f"[DEBUG] Type outcome: {type(outcome)}")
+                print(f"[DEBUG] Outcome brut: {outcome}")
+                print(f"[DEBUG] Nom extrait: {option_name}")
                 
                 try:
                     # Parser le prix avec gestion d'erreurs
-                    price_str = outcome_prices[i] if i < len(outcome_prices) else '0.5'
+                    price_raw = outcome_prices[i] if i < len(outcome_prices) else '0.5'
+                    print(f"[DEBUG] Prix brut: {price_raw} (type: {type(price_raw)})")
+                    
                     # Nettoyer le prix (enlever caractères spéciaux)
-                    price_str = str(price_str).replace('|', '').replace(',', '.').strip()
+                    price_str = str(price_raw).replace('|', '').replace(',', '.').strip()
                     price = float(price_str) if price_str and price_str != '' else 0.5
+                    print(f"[DEBUG] Prix parsé: {price}")
                 except (ValueError, TypeError, IndexError) as e:
                     print(f"[WARNING] Erreur parsing prix pour option {i}: {e}, utilisation 0.5 par défaut")
                     price = 0.5
@@ -253,6 +306,7 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                 })
             
             print(f"[DEBUG] {len(options)} options extraites du marché")
+            print(f"[DEBUG] Première option complète: {options[0] if options else 'Aucune'}")
             
             return {
                 "question": target_market.get('question', 'Unknown'),
