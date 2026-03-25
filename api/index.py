@@ -215,11 +215,24 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
             outcome_prices = target_market.get('outcomePrices', [])
             tokens = target_market.get('tokens', [])
             
+            print(f"[DEBUG] Type outcomes: {type(outcomes)}")
+            print(f"[DEBUG] Outcomes brut: {outcomes[:3] if len(outcomes) > 3 else outcomes}")
+            
             if not outcomes or len(outcomes) == 0:
                 raise HTTPException(status_code=400, detail="Aucune option trouvée pour ce marché")
             
             options = []
             for i, outcome in enumerate(outcomes):
+                # Extraire le nom de l'option (peut être string ou dict)
+                if isinstance(outcome, dict):
+                    option_name = outcome.get('name', str(outcome))
+                elif isinstance(outcome, str):
+                    option_name = outcome
+                else:
+                    option_name = str(outcome)
+                
+                print(f"[DEBUG] Option {i}: type={type(outcome)}, name={option_name}")
+                
                 try:
                     # Parser le prix avec gestion d'erreurs
                     price_str = outcome_prices[i] if i < len(outcome_prices) else '0.5'
@@ -233,7 +246,7 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                 token_id = tokens[i] if i < len(tokens) else ""
                 
                 options.append({
-                    "name": outcome,
+                    "name": option_name,
                     "price": price,
                     "token_id": token_id,
                     "volume": float(target_market.get('volume24hr', 0)) / len(outcomes)
