@@ -74,14 +74,16 @@ export default function Home() {
   };
 
   const getMetricClass = (value: number | string, metric: string) => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    
     if (metric === 'volatility') {
-      if (value < 5) return styles.good;
-      if (value < 8) return styles.warning;
+      if (numValue < 5) return styles.good;
+      if (numValue < 8) return styles.warning;
       return styles.bad;
     }
     if (metric === 'stability') {
-      if (value > 70) return styles.good;
-      if (value > 50) return styles.warning;
+      if (numValue > 70) return styles.good;
+      if (numValue > 50) return styles.warning;
       return styles.bad;
     }
     if (metric === 'trend') {
@@ -90,8 +92,8 @@ export default function Home() {
       return styles.warning;
     }
     if (metric === 'confidence') {
-      if (value > 70) return styles.good;
-      if (value > 50) return styles.warning;
+      if (numValue > 70) return styles.good;
+      if (numValue > 50) return styles.warning;
       return styles.bad;
     }
     return '';
