@@ -354,5 +354,3 @@ def determine_recommendation(timesfm_analysis: Dict, strategy: Dict) -> str:
     else:
         return "OBSERVER"
 
-# Pour Vercel, le handler doit être exposé
-handler = app
