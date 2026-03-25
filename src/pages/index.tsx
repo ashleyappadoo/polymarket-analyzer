@@ -2,11 +2,43 @@ import { useState } from 'react';
 import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 
+interface MarketInfo {
+  question: string;
+  option_name: string;
+  current_price: number;
+  volume_24h: number;
+  liquidity: number;
+}
+
+interface TimesFMAnalysis {
+  volatility: number;
+  stability: number;
+  trend: string;
+  confidence: number;
+}
+
+interface Strategy {
+  suggested_amount: string;
+  entry_price_min: number;
+  entry_price_max: number;
+  exit_price: number;
+  stop_loss: number;
+  roi_potential: string;
+  risk_level: string;
+}
+
+interface MarketAnalysis {
+  market_info: MarketInfo;
+  timesfm_analysis: TimesFMAnalysis;
+  strategy: Strategy;
+  recommendation: string;
+}
+
 export default function Home() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<MarketAnalysis | null>(null);
 
   const analyzeMarket = async () => {
     if (!url) {
