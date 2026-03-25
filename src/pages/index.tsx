@@ -35,7 +35,7 @@ export default function Home() {
       const data = await response.json();
       setResult(data);
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
