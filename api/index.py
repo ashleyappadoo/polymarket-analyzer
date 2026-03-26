@@ -588,40 +588,82 @@ def generate_strategy(option: Dict, timesfm_analysis: Dict) -> Dict:
     }
 
 def determine_recommendation(timesfm_analysis: Dict, strategy: Dict, current_price: float = 0.5) -> str:
-    """Détermine la recommandation en utilisant tendance + prix actuel"""
+    """Détermine la recommandation en utilisant tendance + prix actuel + volatilité"""
     trend = timesfm_analysis["trend"]
     stability = timesfm_analysis["stability"]
     volatility = timesfm_analysis["volatility"]
     
-    # NOUVELLE LOGIQUE: Utiliser aussi le prix actuel
-    # Prix très bas = opportunité d'achat
-    # Prix très haut = attendre ou vendre
+    print(f"[DEBUG RECO] Prix={current_price:.3f}, Trend={trend}, Stability={stability}, Volatility={volatility}")
     
-    # Cas 1: Très forte opportunité (Haussière + Stable + Prix bas)
-    if trend == "Haussière" and stability > 60 and volatility < 8 and current_price < 0.30:
+    # LOGIQUE AGRESSIVE ET VARIÉE
+    
+    # === ZONE ACHETER (prix bas + conditions favorables) ===
+    
+    # Prix très bas (< 15¢) = grande opportunité si pas trop volatile
+    if current_price < 0.15 and volatility < 15:
+        print(f"[DEBUG RECO] → ACHETER (prix très bas < 0.15)")
         return "ACHETER"
     
-    # Cas 2: Bonne opportunité (Haussière + Prix raisonnable)
-    if trend == "Haussière" and stability > 50 and current_price < 0.50:
+    # Prix bas (< 30¢) + tendance haussière
+    if current_price < 0.30 and trend == "Haussière":
+        print(f"[DEBUG RECO] → ACHETER (prix bas + haussière)")
+        return "ACHETER"
+    
+    # Prix bas (< 30¢) + stable mais bon ratio risque/récompense
+    if current_price < 0.30 and stability > 50:
+        print(f"[DEBUG RECO] → ACHETER (prix bas + stable)")
+        return "ACHETER"
+    
+    # === ZONE ACHETER PRUDENT (opportunités moyennes) ===
+    
+    # Prix moyen (< 50¢) + tendance haussière
+    if current_price < 0.50 and trend == "Haussière":
+        print(f"[DEBUG RECO] → ACHETER_PRUDENT (prix moyen + haussière)")
         return "ACHETER_PRUDENT"
     
-    # Cas 3: Prix très bas = opportunité même si tendance moyenne
-    if current_price < 0.10 and volatility < 10:
+    # Prix moyen (30-50¢) + stable + peu volatile
+    if 0.30 <= current_price < 0.50 and stability > 60 and volatility < 8:
+        print(f"[DEBUG RECO] → ACHETER_PRUDENT (prix moyen + conditions stables)")
         return "ACHETER_PRUDENT"
     
-    # Cas 4: Tendance stable + Prix raisonnable = observer
-    if trend == "Stable" and 0.30 < current_price < 0.70 and stability > 60:
+    # === ZONE OBSERVER (situations neutres) ===
+    
+    # Prix élevé (> 70¢) mais tendance haussière = peut encore monter
+    if current_price >= 0.70 and trend == "Haussière" and volatility < 10:
+        print(f"[DEBUG RECO] → OBSERVER (prix élevé mais haussière)")
         return "OBSERVER"
     
-    # Cas 5: Prix très haut = attendre correction
-    if current_price > 0.80:
+    # Prix moyen (40-70¢) + stable = surveiller
+    if 0.40 <= current_price < 0.70 and stability > 55:
+        print(f"[DEBUG RECO] → OBSERVER (prix moyen + stable)")
+        return "OBSERVER"
+    
+    # === ZONE ATTENDRE (situations défavorables) ===
+    
+    # Prix très élevé (> 80¢) = peu de marge
+    if current_price >= 0.80:
+        print(f"[DEBUG RECO] → ATTENDRE (prix trop élevé)")
         return "ATTENDRE"
     
-    # Cas 6: Volatilité élevée = attendre
-    if volatility > 10 or stability < 40:
+    # Volatilité excessive (> 15%)
+    if volatility > 15:
+        print(f"[DEBUG RECO] → ATTENDRE (volatilité élevée)")
         return "ATTENDRE"
     
-    # Par défaut: observer
+    # Tendance baissière + prix déjà moyen/haut
+    if trend == "Baissière" and current_price > 0.40:
+        print(f"[DEBUG RECO] → ATTENDRE (baissière + prix moyen/élevé)")
+        return "ATTENDRE"
+    
+    # === PAR DÉFAUT (devrait rarement arriver) ===
+    
+    # Si prix moyen (30-60¢) sans signal clair → ACHETER_PRUDENT (on favorise l'action)
+    if 0.30 <= current_price < 0.60:
+        print(f"[DEBUG RECO] → ACHETER_PRUDENT (par défaut - prix raisonnable)")
+        return "ACHETER_PRUDENT"
+    
+    # Sinon → OBSERVER
+    print(f"[DEBUG RECO] → OBSERVER (par défaut)")
     return "OBSERVER"
 
 def find_best_option(options: List[OptionAnalysis]) -> Dict:
