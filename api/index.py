@@ -461,9 +461,9 @@ async def analyze_with_timesfm(price_history: List[Dict]) -> Dict:
             print(f"[DEBUG] Données envoyées: {len(prices)} prix (floats), horizon=24")
             print(f"[DEBUG] Premiers prix: {prices[:5]}")
             
-            # Format: {"prices": [float...], "horizon": int}
+            # CORRECTION CRITIQUE: TimesFM attend "data" et non "prices"
             payload = {
-                "prices": prices,
+                "data": prices,  # ← "data" pas "prices" !
                 "horizon": 24
             }
             
