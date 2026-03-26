@@ -143,177 +143,167 @@ def extract_event_slug(url: str) -> Optional[str]:
     return None
 
 async def fetch_market_with_all_options(event_slug: str) -> Dict:
-    """Récupère le marché et toutes ses options"""
+    """Récupère l'event et tous ses markets directement par slug"""
     async with httpx.AsyncClient() as client:
         try:
-            # Rechercher le marché via l'API (augmenté à 200)
-            response = await client.get(
-                f"{GAMMA_API_BASE}/markets",
-                params={"active": "true", "closed": "false", "limit": 200},
-                timeout=10.0
-            )
-            response.raise_for_status()
-            markets = response.json()
+            # Appel DIRECT à l'endpoint events/slug (pas de recherche!)
+            url = f"{GAMMA_API_BASE}/events/slug/{event_slug}"
+            print(f"[DEBUG] Appel API: {url}")
             
-            print(f"[DEBUG] Nombre de marchés retournés: {len(markets)}")
-            print(f"[DEBUG] Recherche pour event_slug: {event_slug}")
+            response = await client.get(url, timeout=10.0)
+            print(f"[DEBUG] Status code: {response.status_code}")
             
-            # Trouver le marché correspondant au slug
-            target_market = None
-            
-            # Nettoyer et tokenizer le slug de l'URL
-            event_tokens = set(event_slug.lower().replace('-', ' ').split())
-            print(f"[DEBUG] Event tokens: {event_tokens}")
-            
-            best_match_score = 0
-            best_match_details = None
-            
-            for market in markets:
-                # Chercher dans le slug ET la question
-                market_slug = market.get('slug', '').lower()
-                market_question = market.get('question', '').lower()
-                
-                # Tokenizer le slug et la question du marché
-                market_tokens = set(market_slug.replace('-', ' ').split())
-                question_tokens = set(market_question.replace('-', ' ').split())
-                
-                # Calculer le score de matching
-                slug_matches = len(event_tokens & market_tokens)
-                question_matches = len(event_tokens & question_tokens)
-                total_score = slug_matches + question_matches
-                
-                # Garder le meilleur match
-                if total_score > best_match_score:
-                    best_match_score = total_score
-                    target_market = market
-                    best_match_details = {
-                        "slug": market_slug,
-                        "question": market_question,
-                        "score": total_score,
-                        "slug_matches": slug_matches,
-                        "question_matches": question_matches
-                    }
-            
-            print(f"[DEBUG] Meilleur score trouvé: {best_match_score}")
-            if best_match_details:
-                print(f"[DEBUG] Meilleur match: {best_match_details}")
-            
-            # Accepter un match si au moins 3 mots en commun (augmenté pour éviter faux positifs)
-            if not target_market or best_match_score < 3:
-                # Log les 5 premiers marchés pour debug
-                print("[DEBUG] Aucun match trouvé. Premiers marchés:")
-                for i, m in enumerate(markets[:5]):
-                    print(f"  {i+1}. Slug: {m.get('slug', 'N/A')}")
-                    print(f"     Question: {m.get('question', 'N/A')}")
+            if response.status_code == 404:
                 raise HTTPException(
                     status_code=404, 
-                    detail=f"Marché non trouvé (meilleur score: {best_match_score}/3 minimum requis)"
+                    detail=f"Event '{event_slug}' non trouvé. Vérifiez que l'URL est correcte."
                 )
             
-            # Extraire toutes les options
-            outcomes_raw = target_market.get('outcomes', [])
-            outcome_prices_raw = target_market.get('outcomePrices', [])
-            tokens_raw = target_market.get('tokens', [])
+            response.raise_for_status()
+            event_data = response.json()
             
-            # LOG ULTRA-DÉTAILLÉ
-            print(f"[DEBUG] ========== DONNÉES BRUTES API ==========")
-            print(f"[DEBUG] Type outcomes_raw: {type(outcomes_raw)}")
-            print(f"[DEBUG] Type outcome_prices_raw: {type(outcome_prices_raw)}")
-            print(f"[DEBUG] Type tokens_raw: {type(tokens_raw)}")
-            print(f"[DEBUG] Outcomes_raw (premiers 500 chars): {str(outcomes_raw)[:500]}")
-            print(f"[DEBUG] OutcomePrices_raw (premiers 500 chars): {str(outcome_prices_raw)[:500]}")
-            print(f"[DEBUG] Tokens_raw (premiers 500 chars): {str(tokens_raw)[:500]}")
+            print(f"[DEBUG] Event trouvé: {event_data.get('title', 'N/A')}")
+            print(f"[DEBUG] Event slug: {event_data.get('slug', 'N/A')}")
             
-            # Parser si ce sont des strings JSON
-            import json as json_module
+            # Récupérer les markets de cet event
+            markets = event_data.get('markets', [])
+            print(f"[DEBUG] Nombre de markets dans l'event: {len(markets)}")
             
-            # Parser outcomes
-            if isinstance(outcomes_raw, str):
-                try:
+            if not markets or len(markets) == 0:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Aucun marché actif trouvé pour cet event"
+                )
+            
+            # Si un seul market = utiliser ses outcomes directement
+            # Si plusieurs markets = chaque market est une "option"
+            if len(markets) == 1:
+                # UN SEUL MARKET → Utiliser ses outcomes
+                market = markets[0]
+                print(f"[DEBUG] Un seul market trouvé: {market.get('question', 'N/A')}")
+                
+                outcomes_raw = market.get('outcomes', [])
+                outcome_prices_raw = market.get('outcomePrices', [])
+                tokens_raw = market.get('tokens', [])
+                
+                print(f"[DEBUG] ========== DONNÉES BRUTES API ==========")
+                print(f"[DEBUG] Type outcomes_raw: {type(outcomes_raw)}")
+                print(f"[DEBUG] Outcomes_raw: {str(outcomes_raw)[:200]}")
+                
+                # Parser JSON strings
+                import json as json_module
+                
+                if isinstance(outcomes_raw, str):
                     outcomes = json_module.loads(outcomes_raw)
                     print(f"[DEBUG] Outcomes parsé depuis JSON string")
-                except Exception as e:
-                    print(f"[DEBUG] Erreur parsing outcomes JSON: {e}")
-                    outcomes = []
-            else:
-                outcomes = outcomes_raw
-            
-            # Parser prices
-            if isinstance(outcome_prices_raw, str):
-                try:
-                    outcome_prices = json_module.loads(outcome_prices_raw)
-                    print(f"[DEBUG] OutcomePrices parsé depuis JSON string")
-                except Exception as e:
-                    print(f"[DEBUG] Erreur parsing prices JSON: {e}")
-                    outcome_prices = []
-            else:
-                outcome_prices = outcome_prices_raw
-            
-            # Parser tokens
-            if isinstance(tokens_raw, str):
-                try:
-                    tokens = json_module.loads(tokens_raw)
-                    print(f"[DEBUG] Tokens parsé depuis JSON string")
-                except Exception as e:
-                    print(f"[DEBUG] Erreur parsing tokens JSON: {e}")
-                    tokens = []
-            else:
-                tokens = tokens_raw
-            
-            print(f"[DEBUG] ========== APRÈS PARSING ==========")
-            print(f"[DEBUG] Type outcomes: {type(outcomes)}")
-            print(f"[DEBUG] Nombre outcomes: {len(outcomes) if isinstance(outcomes, list) else 'N/A'}")
-            print(f"[DEBUG] Premiers outcomes: {outcomes[:3] if isinstance(outcomes, list) and len(outcomes) > 3 else outcomes}")
-            
-            if not outcomes or len(outcomes) == 0:
-                raise HTTPException(status_code=400, detail="Aucune option trouvée pour ce marché")
-            
-            options = []
-            for i, outcome in enumerate(outcomes):
-                # Extraire le nom de l'option
-                if isinstance(outcome, dict):
-                    option_name = outcome.get('name', str(outcome))
-                elif isinstance(outcome, str):
-                    option_name = outcome
                 else:
-                    option_name = str(outcome)
+                    outcomes = outcomes_raw
                 
-                print(f"[DEBUG] ===== Option {i} =====")
-                print(f"[DEBUG] Type outcome: {type(outcome)}")
-                print(f"[DEBUG] Outcome brut: {outcome}")
-                print(f"[DEBUG] Nom extrait: {option_name}")
+                if isinstance(outcome_prices_raw, str):
+                    outcome_prices = json_module.loads(outcome_prices_raw)
+                else:
+                    outcome_prices = outcome_prices_raw
                 
-                try:
-                    # Parser le prix avec gestion d'erreurs
-                    price_raw = outcome_prices[i] if i < len(outcome_prices) else '0.5'
-                    print(f"[DEBUG] Prix brut: {price_raw} (type: {type(price_raw)})")
+                if isinstance(tokens_raw, str):
+                    tokens = json_module.loads(tokens_raw)
+                else:
+                    tokens = tokens_raw
+                
+                print(f"[DEBUG] Nombre outcomes: {len(outcomes)}")
+                
+                options = []
+                for i, outcome in enumerate(outcomes):
+                    # Extraire le nom
+                    if isinstance(outcome, dict):
+                        option_name = outcome.get('name', str(outcome))
+                    elif isinstance(outcome, str):
+                        option_name = outcome
+                    else:
+                        option_name = str(outcome)
                     
-                    # Nettoyer le prix (enlever caractères spéciaux)
-                    price_str = str(price_raw).replace('|', '').replace(',', '.').strip()
-                    price = float(price_str) if price_str and price_str != '' else 0.5
-                    print(f"[DEBUG] Prix parsé: {price}")
-                except (ValueError, TypeError, IndexError) as e:
-                    print(f"[WARNING] Erreur parsing prix pour option {i}: {e}, utilisation 0.5 par défaut")
-                    price = 0.5
+                    # Extraire le prix
+                    try:
+                        price_raw = outcome_prices[i] if i < len(outcome_prices) else '0.5'
+                        price_str = str(price_raw).replace('|', '').replace(',', '.').strip()
+                        price = float(price_str) if price_str and price_str != '' else 0.5
+                    except (ValueError, TypeError, IndexError) as e:
+                        print(f"[WARNING] Erreur parsing prix option {i}: {e}")
+                        price = 0.5
+                    
+                    token_id = tokens[i] if i < len(tokens) else ""
+                    
+                    options.append({
+                        "name": option_name,
+                        "price": price,
+                        "token_id": token_id,
+                        "volume": float(market.get('volume24hr', 0)) / len(outcomes)
+                    })
                 
-                token_id = tokens[i] if i < len(tokens) else ""
+                print(f"[DEBUG] {len(options)} options extraites")
                 
-                options.append({
-                    "name": option_name,
-                    "price": price,
-                    "token_id": token_id,
-                    "volume": float(target_market.get('volume24hr', 0)) / len(outcomes)
-                })
+                return {
+                    "question": market.get('question', event_data.get('title', 'Unknown')),
+                    "options": options,
+                    "end_date": market.get('endDate', ''),
+                    "market_id": market.get('id', '')
+                }
             
-            print(f"[DEBUG] {len(options)} options extraites du marché")
-            print(f"[DEBUG] Première option complète: {options[0] if options else 'Aucune'}")
-            
-            return {
-                "question": target_market.get('question', 'Unknown'),
-                "options": options,
-                "end_date": target_market.get('endDate', ''),
-                "market_id": target_market.get('id', '')
-            }
+            else:
+                # PLUSIEURS MARKETS → Chaque market est une option
+                print(f"[DEBUG] {len(markets)} markets trouvés → chaque market = une option")
+                
+                options = []
+                for market in markets:
+                    # Le nom de l'option = la question du market
+                    option_name = market.get('groupItemTitle') or market.get('question', 'Unknown')
+                    
+                    # Le prix = moyenne des outcomes du market
+                    outcomes_raw = market.get('outcomes', [])
+                    outcome_prices_raw = market.get('outcomePrices', [])
+                    
+                    import json as json_module
+                    
+                    if isinstance(outcome_prices_raw, str):
+                        try:
+                            outcome_prices = json_module.loads(outcome_prices_raw)
+                        except:
+                            outcome_prices = [0.5]
+                    else:
+                        outcome_prices = outcome_prices_raw if outcome_prices_raw else [0.5]
+                    
+                    # Calculer prix moyen
+                    try:
+                        prices_float = [float(str(p).replace('|', '').strip()) for p in outcome_prices if p]
+                        avg_price = sum(prices_float) / len(prices_float) if prices_float else 0.5
+                    except:
+                        avg_price = 0.5
+                    
+                    options.append({
+                        "name": option_name,
+                        "price": avg_price,
+                        "token_id": market.get('clobTokenIds', ''),
+                        "volume": float(market.get('volume24hr', 0))
+                    })
+                
+                print(f"[DEBUG] {len(options)} options (markets) extraites")
+                
+                return {
+                    "question": event_data.get('title', 'Unknown'),
+                    "options": options,
+                    "end_date": event_data.get('endDate', ''),
+                    "market_id": event_data.get('id', '')
+                }
+                
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Event '{event_slug}' non trouvé. Vérifiez l'URL."
+                )
+            raise HTTPException(status_code=e.response.status_code, detail=str(e))
+        except Exception as e:
+            print(f"[ERROR] Erreur fetch event: {e}")
+            raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
             
         except httpx.HTTPError as e:
             raise HTTPException(status_code=502, detail=f"Erreur API Polymarket: {str(e)}")
