@@ -238,9 +238,19 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                         print(f"[WARNING] Erreur parsing prix option {i}: {e}")
                         price = 0.5
                     
-                    # CORRECTION: Utiliser clob_tokens au lieu de tokens
-                    token_id = clob_tokens[i] if i < len(clob_tokens) else ""
-                    print(f"[DEBUG] Option {i}: nom='{option_name}', prix={price}, token_id='{token_id[:20]}...' si token_id")
+                    # CORRECTION CRITIQUE: clobTokenIds contient [token_yes, token_no]
+                    # On prend UNIQUEMENT le PREMIER (token Yes)
+                    if i < len(clob_tokens):
+                        token_pair = clob_tokens[i]
+                        # Si c'est un array, prendre le premier élément
+                        if isinstance(token_pair, list) and len(token_pair) > 0:
+                            token_id = token_pair[0]
+                        else:
+                            token_id = str(token_pair)
+                    else:
+                        token_id = ""
+                    
+                    print(f"[DEBUG] Option {i}: nom='{option_name[:30]}', prix={price}, token_id='{token_id[:40]}...' ")
                     
                     options.append({
                         "name": option_name,
@@ -288,10 +298,35 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                     except:
                         avg_price = 0.5
                     
+                    # CORRECTION: Parser clobTokenIds et prendre le premier token
+                    clob_tokens_raw = market.get('clobTokenIds', '')
+                    token_id = ""
+                    
+                    if clob_tokens_raw:
+                        try:
+                            if isinstance(clob_tokens_raw, str):
+                                clob_tokens = json_module.loads(clob_tokens_raw)
+                            else:
+                                clob_tokens = clob_tokens_raw
+                            
+                            # Prendre le premier token (Yes token généralement)
+                            if isinstance(clob_tokens, list) and len(clob_tokens) > 0:
+                                first_pair = clob_tokens[0]
+                                # Si c'est encore un array (paire Yes/No), prendre le premier
+                                if isinstance(first_pair, list) and len(first_pair) > 0:
+                                    token_id = str(first_pair[0])
+                                else:
+                                    token_id = str(first_pair)
+                            elif isinstance(clob_tokens, str):
+                                token_id = clob_tokens
+                        except Exception as e:
+                            print(f"[WARNING] Erreur parsing clobTokenIds: {e}")
+                            token_id = ""
+                    
                     options.append({
                         "name": option_name,
                         "price": avg_price,
-                        "token_id": market.get('clobTokenIds', ''),
+                        "token_id": token_id,
                         "volume": float(market.get('volume24hr', 0))
                     })
                 
@@ -320,11 +355,29 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
 
 async def fetch_price_history(token_id: str) -> List[Dict]:
     """Récupère l'historique des prix"""
-    print(f"[DEBUG] fetch_price_history appelé avec token_id: {token_id[:30] if token_id else 'VIDE'}")
+    print(f"[DEBUG] fetch_price_history appelé avec token_id type: {type(token_id)}")
+    print(f"[DEBUG] token_id (premiers 50 chars): {str(token_id)[:50]}")
     
-    if not token_id:
-        print(f"[WARNING] token_id vide → Génération données synthétiques")
+    # CRITICAL: Vérifier que token_id est un STRING, pas un array
+    if not token_id or not isinstance(token_id, str):
+        print(f"[WARNING] token_id invalide (type={type(token_id)}) → Génération données synthétiques")
         return generate_synthetic_history()
+    
+    # Si token_id commence par "[", c'est probablement un JSON array
+    if token_id.startswith('['):
+        print(f"[WARNING] token_id est un array JSON → Parsing pour extraire le premier")
+        try:
+            import json as json_module
+            tokens = json_module.loads(token_id)
+            if isinstance(tokens, list) and len(tokens) > 0:
+                token_id = str(tokens[0])
+                print(f"[DEBUG] Premier token extrait: {token_id[:50]}")
+            else:
+                print(f"[WARNING] Array vide → Données synthétiques")
+                return generate_synthetic_history()
+        except:
+            print(f"[WARNING] Parsing array échoué → Données synthétiques")
+            return generate_synthetic_history()
     
     async with httpx.AsyncClient() as client:
         try:
@@ -332,8 +385,9 @@ async def fetch_price_history(token_id: str) -> List[Dict]:
             start_ts = int((datetime.now() - timedelta(days=7)).timestamp())
             
             url = f"{CLOB_API_BASE}/prices-history"
+            # CRITICAL: market parameter doit être UN SEUL token_id STRING
             params = {
-                "market": token_id,
+                "market": token_id,  # STRING, pas array !
                 "startTs": start_ts,
                 "endTs": end_ts,
                 "interval": "1h",
@@ -341,7 +395,7 @@ async def fetch_price_history(token_id: str) -> List[Dict]:
             }
             
             print(f"[DEBUG] Appel CLOB API: {url}")
-            print(f"[DEBUG] Params: market={token_id[:30]}..., interval=1h")
+            print(f"[DEBUG] Params: market={token_id[:40]}..., interval=1h, fidelity=60")
             
             response = await client.get(url, params=params, timeout=10.0)
             
@@ -350,6 +404,10 @@ async def fetch_price_history(token_id: str) -> List[Dict]:
             if response.status_code == 200:
                 data = response.json()
                 history = data.get('history', [])
+                
+                if not history or len(history) == 0:
+                    print(f"[WARNING] Historique vide malgré 200 OK → Données synthétiques")
+                    return generate_synthetic_history()
                 
                 print(f"[DEBUG] ✅ Historique récupéré: {len(history)} points")
                 
@@ -392,18 +450,26 @@ async def analyze_with_timesfm(price_history: List[Dict]) -> Dict:
     
     async with httpx.AsyncClient() as client:
         try:
-            prices = [point["price"] for point in price_history]
+            # Extraire les prix et s'assurer qu'ils sont des floats
+            prices = [float(point["price"]) for point in price_history]
             
             if len(prices) < 10:
                 print(f"[WARNING] Historique insuffisant ({len(prices)} points) → basic_analysis")
                 raise ValueError("Historique insuffisant")
             
             print(f"[DEBUG] Appel TimesFM API: {TIMESFM_API_URL}")
-            print(f"[DEBUG] Données envoyées: {len(prices)} prix, horizon=24")
+            print(f"[DEBUG] Données envoyées: {len(prices)} prix (floats), horizon=24")
+            print(f"[DEBUG] Premiers prix: {prices[:5]}")
+            
+            # Format: {"prices": [float...], "horizon": int}
+            payload = {
+                "prices": prices,
+                "horizon": 24
+            }
             
             response = await client.post(
                 TIMESFM_API_URL,
-                json={"prices": prices, "horizon": 24},
+                json=payload,
                 timeout=30.0
             )
             
@@ -412,9 +478,16 @@ async def analyze_with_timesfm(price_history: List[Dict]) -> Dict:
             if response.status_code == 200:
                 timesfm_data = response.json()
                 print(f"[DEBUG] ✅ TimesFM analysis réussie")
+                print(f"[DEBUG] TimesFM data keys: {timesfm_data.keys() if isinstance(timesfm_data, dict) else 'not a dict'}")
                 return calculate_metrics(prices, timesfm_data)
             else:
-                print(f"[WARNING] TimesFM erreur {response.status_code} → basic_analysis")
+                print(f"[WARNING] TimesFM erreur {response.status_code}")
+                try:
+                    error_detail = response.json()
+                    print(f"[WARNING] TimesFM error detail: {error_detail}")
+                except:
+                    print(f"[WARNING] TimesFM error text: {response.text[:200]}")
+                print(f"[WARNING] → Fallback basic_analysis")
                 return basic_analysis(prices)
                 
         except Exception as e:
