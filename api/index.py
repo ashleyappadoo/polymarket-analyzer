@@ -277,7 +277,9 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                     # Le nom de l'option = la question du market
                     option_name = market.get('groupItemTitle') or market.get('question', 'Unknown')
                     
-                    # Le prix = moyenne des outcomes du market
+                    # CORRECTION CRITIQUE: Prendre le PREMIER prix (Yes) pas la moyenne !
+                    # outcomePrices = ["prix_yes", "prix_no"] et prix_yes + prix_no = 1.0
+                    # On veut UNIQUEMENT prix_yes !
                     outcomes_raw = market.get('outcomes', [])
                     outcome_prices_raw = market.get('outcomePrices', [])
                     
@@ -291,12 +293,15 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                     else:
                         outcome_prices = outcome_prices_raw if outcome_prices_raw else [0.5]
                     
-                    # Calculer prix moyen
+                    # Prendre le PREMIER prix (Yes) uniquement
                     try:
-                        prices_float = [float(str(p).replace('|', '').strip()) for p in outcome_prices if p]
-                        avg_price = sum(prices_float) / len(prices_float) if prices_float else 0.5
+                        if outcome_prices and len(outcome_prices) > 0:
+                            first_price_str = str(outcome_prices[0]).replace('|', '').strip()
+                            market_price = float(first_price_str) if first_price_str else 0.5
+                        else:
+                            market_price = 0.5
                     except:
-                        avg_price = 0.5
+                        market_price = 0.5
                     
                     # CORRECTION: Parser clobTokenIds et prendre le premier token
                     clob_tokens_raw = market.get('clobTokenIds', '')
@@ -323,9 +328,11 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                             print(f"[WARNING] Erreur parsing clobTokenIds: {e}")
                             token_id = ""
                     
+                    print(f"[DEBUG] Market option '{option_name[:50]}...': prix={market_price:.4f}, token_id='{token_id[:40]}...'")
+                    
                     options.append({
                         "name": option_name,
-                        "price": avg_price,
+                        "price": market_price,
                         "token_id": token_id,
                         "volume": float(market.get('volume24hr', 0))
                     })
