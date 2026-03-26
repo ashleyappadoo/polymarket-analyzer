@@ -92,8 +92,8 @@ async def analyze_market(request: AnalyzeRequest):
             # Générer stratégie
             strategy = generate_strategy(option, timesfm_analysis)
             
-            # Déterminer recommandation
-            recommendation = determine_recommendation(timesfm_analysis, strategy)
+            # Déterminer recommandation (avec prix actuel)
+            recommendation = determine_recommendation(timesfm_analysis, strategy, option["price"])
             
             # Créer l'analyse de cette option
             option_analysis = OptionAnalysis(
@@ -184,11 +184,13 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                 
                 outcomes_raw = market.get('outcomes', [])
                 outcome_prices_raw = market.get('outcomePrices', [])
-                tokens_raw = market.get('tokens', [])
+                # CORRECTION: Utiliser clobTokenIds au lieu de tokens
+                clob_tokens_raw = market.get('clobTokenIds', '')
                 
                 print(f"[DEBUG] ========== DONNÉES BRUTES API ==========")
                 print(f"[DEBUG] Type outcomes_raw: {type(outcomes_raw)}")
                 print(f"[DEBUG] Outcomes_raw: {str(outcomes_raw)[:200]}")
+                print(f"[DEBUG] clobTokenIds: {clob_tokens_raw}")
                 
                 # Parser JSON strings
                 import json as json_module
@@ -204,12 +206,18 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                 else:
                     outcome_prices = outcome_prices_raw
                 
-                if isinstance(tokens_raw, str):
-                    tokens = json_module.loads(tokens_raw)
+                # Parser clobTokenIds
+                if isinstance(clob_tokens_raw, str) and clob_tokens_raw:
+                    try:
+                        clob_tokens = json_module.loads(clob_tokens_raw)
+                        print(f"[DEBUG] clobTokenIds parsé: {len(clob_tokens)} tokens")
+                    except:
+                        clob_tokens = []
                 else:
-                    tokens = tokens_raw
+                    clob_tokens = clob_tokens_raw if clob_tokens_raw else []
                 
                 print(f"[DEBUG] Nombre outcomes: {len(outcomes)}")
+                print(f"[DEBUG] Nombre clob_tokens: {len(clob_tokens)}")
                 
                 options = []
                 for i, outcome in enumerate(outcomes):
@@ -230,7 +238,9 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
                         print(f"[WARNING] Erreur parsing prix option {i}: {e}")
                         price = 0.5
                     
-                    token_id = tokens[i] if i < len(tokens) else ""
+                    # CORRECTION: Utiliser clob_tokens au lieu de tokens
+                    token_id = clob_tokens[i] if i < len(clob_tokens) else ""
+                    print(f"[DEBUG] Option {i}: nom='{option_name}', prix={price}, token_id='{token_id[:20]}...' si token_id")
                     
                     options.append({
                         "name": option_name,
@@ -310,26 +320,38 @@ async def fetch_market_with_all_options(event_slug: str) -> Dict:
 
 async def fetch_price_history(token_id: str) -> List[Dict]:
     """Récupère l'historique des prix"""
+    print(f"[DEBUG] fetch_price_history appelé avec token_id: {token_id[:30] if token_id else 'VIDE'}")
+    
+    if not token_id:
+        print(f"[WARNING] token_id vide → Génération données synthétiques")
+        return generate_synthetic_history()
+    
     async with httpx.AsyncClient() as client:
         try:
             end_ts = int(datetime.now().timestamp())
             start_ts = int((datetime.now() - timedelta(days=7)).timestamp())
             
-            response = await client.get(
-                f"{CLOB_API_BASE}/prices-history",
-                params={
-                    "market": token_id,
-                    "startTs": start_ts,
-                    "endTs": end_ts,
-                    "interval": "1h",
-                    "fidelity": 60
-                },
-                timeout=10.0
-            )
+            url = f"{CLOB_API_BASE}/prices-history"
+            params = {
+                "market": token_id,
+                "startTs": start_ts,
+                "endTs": end_ts,
+                "interval": "1h",
+                "fidelity": 60
+            }
+            
+            print(f"[DEBUG] Appel CLOB API: {url}")
+            print(f"[DEBUG] Params: market={token_id[:30]}..., interval=1h")
+            
+            response = await client.get(url, params=params, timeout=10.0)
+            
+            print(f"[DEBUG] CLOB response status: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
                 history = data.get('history', [])
+                
+                print(f"[DEBUG] ✅ Historique récupéré: {len(history)} points")
                 
                 return [
                     {
@@ -339,9 +361,11 @@ async def fetch_price_history(token_id: str) -> List[Dict]:
                     for point in history
                 ]
             else:
+                print(f"[WARNING] CLOB API erreur {response.status_code} → Données synthétiques")
                 return generate_synthetic_history()
                 
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] Exception fetch_price_history: {e} → Données synthétiques")
             return generate_synthetic_history()
 
 def generate_synthetic_history() -> List[Dict]:
@@ -364,12 +388,18 @@ def generate_synthetic_history() -> List[Dict]:
 
 async def analyze_with_timesfm(price_history: List[Dict]) -> Dict:
     """Analyse avec TimesFM"""
+    print(f"[DEBUG] analyze_with_timesfm: {len(price_history)} points d'historique")
+    
     async with httpx.AsyncClient() as client:
         try:
             prices = [point["price"] for point in price_history]
             
             if len(prices) < 10:
+                print(f"[WARNING] Historique insuffisant ({len(prices)} points) → basic_analysis")
                 raise ValueError("Historique insuffisant")
+            
+            print(f"[DEBUG] Appel TimesFM API: {TIMESFM_API_URL}")
+            print(f"[DEBUG] Données envoyées: {len(prices)} prix, horizon=24")
             
             response = await client.post(
                 TIMESFM_API_URL,
@@ -377,13 +407,18 @@ async def analyze_with_timesfm(price_history: List[Dict]) -> Dict:
                 timeout=30.0
             )
             
+            print(f"[DEBUG] TimesFM response status: {response.status_code}")
+            
             if response.status_code == 200:
                 timesfm_data = response.json()
+                print(f"[DEBUG] ✅ TimesFM analysis réussie")
                 return calculate_metrics(prices, timesfm_data)
             else:
+                print(f"[WARNING] TimesFM erreur {response.status_code} → basic_analysis")
                 return basic_analysis(prices)
                 
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] Exception analyze_with_timesfm: {e} → basic_analysis")
             return basic_analysis([point["price"] for point in price_history])
 
 def calculate_metrics(prices: List[float], timesfm_data: Dict) -> Dict:
@@ -479,20 +514,42 @@ def generate_strategy(option: Dict, timesfm_analysis: Dict) -> Dict:
         "risk_level": risk_level
     }
 
-def determine_recommendation(timesfm_analysis: Dict, strategy: Dict) -> str:
-    """Détermine la recommandation"""
+def determine_recommendation(timesfm_analysis: Dict, strategy: Dict, current_price: float = 0.5) -> str:
+    """Détermine la recommandation en utilisant tendance + prix actuel"""
     trend = timesfm_analysis["trend"]
     stability = timesfm_analysis["stability"]
     volatility = timesfm_analysis["volatility"]
     
-    if trend == "Haussière" and stability > 70 and volatility < 6:
+    # NOUVELLE LOGIQUE: Utiliser aussi le prix actuel
+    # Prix très bas = opportunité d'achat
+    # Prix très haut = attendre ou vendre
+    
+    # Cas 1: Très forte opportunité (Haussière + Stable + Prix bas)
+    if trend == "Haussière" and stability > 60 and volatility < 8 and current_price < 0.30:
         return "ACHETER"
-    elif trend == "Haussière" and stability > 60:
+    
+    # Cas 2: Bonne opportunité (Haussière + Prix raisonnable)
+    if trend == "Haussière" and stability > 50 and current_price < 0.50:
         return "ACHETER_PRUDENT"
-    elif volatility > 8 or stability < 50:
-        return "ATTENDRE"
-    else:
+    
+    # Cas 3: Prix très bas = opportunité même si tendance moyenne
+    if current_price < 0.10 and volatility < 10:
+        return "ACHETER_PRUDENT"
+    
+    # Cas 4: Tendance stable + Prix raisonnable = observer
+    if trend == "Stable" and 0.30 < current_price < 0.70 and stability > 60:
         return "OBSERVER"
+    
+    # Cas 5: Prix très haut = attendre correction
+    if current_price > 0.80:
+        return "ATTENDRE"
+    
+    # Cas 6: Volatilité élevée = attendre
+    if volatility > 10 or stability < 40:
+        return "ATTENDRE"
+    
+    # Par défaut: observer
+    return "OBSERVER"
 
 def find_best_option(options: List[OptionAnalysis]) -> Dict:
     """Trouve la meilleure option"""
